@@ -135,18 +135,23 @@ public class LootTrackerPlugin extends Plugin
 	private static final String GAUNTLET_LOOTED_MESSAGE = "You open the chest.";
 	private static final String GAUNTLET_EVENT = "The Gauntlet";
 	private static final int GAUNTLET_LOBBY_REGION = 12127;
+        
+        //Barehand Implings
+        private static final String BAREHANDED_IMPLING_LOOT_MESSAGE = "You manage to catch the impling and acquire some loot.";
+        private static final String BAREHANDED_IMP_EVENT = "Barehanded Impling";
 
 	// Chest loot handling
 	private static final String CHEST_LOOTED_MESSAGE = "You find some treasure in the chest!";
+        private static final String LIZZARDMAN_LOOTED_MESSAGE = "You steal some loot from the chest.";
 	private static final Pattern LARRAN_LOOTED_PATTERN = Pattern.compile("You have opened Larran's (big|small) chest .*");
-	private static final Map<Integer, String> CHEST_EVENT_TYPES = ImmutableMap.of(
-		5179, "Brimstone Chest",
-		11573, "Crystal Chest",
-		12093, "Larran's big chest",
-		13113, "Larran's small chest",
-		13151, "Elven Crystal Chest"
-	);
-
+        private static final ImmutableMap chestTypes = ImmutableMap.builder().put(5179, "Brimstone Chest").put(11573, "Crystal Chest").put(12093, "Larran's big chest").put(13113, "Larran's small chest").put(5277, "Lizzardman Stone Chest").build();
+        private static final Map<Integer, String> CHEST_EVENT_TYPES = chestTypes;
+        
+        //Shades MiniGame Chest loot
+        private static final String SHADES_OF_MORTN_EVENT = "Shades -";
+        private static final Set<Integer> SHADES_OF_MORTN_REGIONS = ImmutableSet.of(13974,13975);
+        private static final String SHADES_WRONG_KEY = "You don't have the correct key.";
+        
 	// Last man standing map regions
 	private static final Set<Integer> LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13914, 13915, 13916);
 
@@ -197,6 +202,8 @@ public class LootTrackerPlugin extends Plugin
 	LootRecordType lootRecordType;
 	private boolean chestLooted;
 	private String lastPickpocketTarget;
+        private String lastShadeChestOpened;
+        private boolean shadeChestSuccess;
 
 	private List<String> ignoredItems = new ArrayList<>();
 	private List<String> ignoredEvents = new ArrayList<>();
@@ -207,14 +214,12 @@ public class LootTrackerPlugin extends Plugin
 	private LootTrackerClient lootTrackerClient;
 	private final List<LootRecord> queuedLoots = new ArrayList<>();
 
-	@VisibleForTesting
-	Collection<ItemStack> stack(Collection<ItemStack> items)
+	private static Collection<ItemStack> stack(Collection<ItemStack> items)
 	{
 		final List<ItemStack> list = new ArrayList<>();
 
-		for (ItemStack item : items)
+		for (final ItemStack item : items)
 		{
-			item = LootTrackerMapping.map(item, itemManager);
 			int quantity = 0;
 			for (final ItemStack i : list)
 			{
@@ -418,8 +423,24 @@ public class LootTrackerPlugin extends Plugin
 	{
 		final String event;
 		final ItemContainer container;
+                final int regionID = client.getLocalPlayer().getWorldLocation().getRegionID();
 		switch (widgetLoaded.getGroupId())
 		{
+                        case (WidgetID.DIALOG_SPRITE_GROUP_ID):
+                                if(SHADES_OF_MORTN_REGIONS.contains(regionID)){
+                                        eventType = "Shades -" + " " + lastShadeChestOpened;
+                                        lootRecordType = LootRecordType.EVENT;
+                                        shadeChestSuccess = true;
+                                        lastShadeChestOpened = "";
+                                }
+                                return;
+                        case (11):
+                                if(SHADES_OF_MORTN_REGIONS.contains(regionID)){
+                                        eventType = "Shades -" + " " + lastShadeChestOpened;
+                                        lootRecordType = LootRecordType.EVENT;
+                                        shadeChestSuccess = true;
+                                }
+                                return;
 			case (WidgetID.BARROWS_REWARD_GROUP_ID):
 				event = "Barrows";
 				container = client.getItemContainer(InventoryID.BARROWS_REWARD);
@@ -502,24 +523,28 @@ public class LootTrackerPlugin extends Plugin
 		{
 			return;
 		}
-
+                
 		final String message = event.getMessage();
-
-		if (message.equals(CHEST_LOOTED_MESSAGE) || LARRAN_LOOTED_PATTERN.matcher(message).matches())
+                
+		if (message.equals(CHEST_LOOTED_MESSAGE) || LARRAN_LOOTED_PATTERN.matcher(message).matches() || message.equals(LIZZARDMAN_LOOTED_MESSAGE))
 		{
 			final int regionID = client.getLocalPlayer().getWorldLocation().getRegionID();
 			if (!CHEST_EVENT_TYPES.containsKey(regionID))
 			{
 				return;
 			}
-
 			eventType = CHEST_EVENT_TYPES.get(regionID);
 			lootRecordType = LootRecordType.EVENT;
 			takeInventorySnapshot();
 
 			return;
 		}
-
+                if(message.equals(BAREHANDED_IMPLING_LOOT_MESSAGE)){
+                        eventType = BAREHANDED_IMP_EVENT;
+			lootRecordType = LootRecordType.EVENT;
+			takeInventorySnapshot();
+                }
+                
 		if (message.equals(HERBIBOAR_LOOTED_MESSAGE))
 		{
 			if (processHerbiboarHerbSackLoot(event.getTimestamp()))
@@ -541,7 +566,11 @@ public class LootTrackerPlugin extends Plugin
 			takeInventorySnapshot();
 			return;
 		}
-
+                
+                if (SHADES_OF_MORTN_REGIONS.contains(regionID) && message.equals(SHADES_WRONG_KEY)){
+                    shadeChestSuccess = false;
+                    return;
+                }
 		if (GAUNTLET_LOBBY_REGION == regionID && message.equals(GAUNTLET_LOOTED_MESSAGE))
 		{
 			eventType = GAUNTLET_EVENT;
@@ -614,10 +643,12 @@ public class LootTrackerPlugin extends Plugin
 		{
 			return;
 		}
-
-		if (CHEST_EVENT_TYPES.containsValue(eventType)
+                System.out.println("Item-Container Change: " + event);
+		if (CHEST_EVENT_TYPES.containsValue(eventType) 
+                        || (eventType != null && eventType.contains(SHADES_OF_MORTN_EVENT) && (shadeChestSuccess || lastShadeChestOpened == ""))
 			|| HERBIBOAR_EVENT.equals(eventType)
 			|| HESPORI_EVENT.equals(eventType)
+                        || BAREHANDED_IMP_EVENT.equals(eventType)
 			|| GAUNTLET_EVENT.equals(eventType)
 			|| lootRecordType == LootRecordType.PICKPOCKET)
 		{
@@ -630,11 +661,18 @@ public class LootTrackerPlugin extends Plugin
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
+            final int regionID = client.getLocalPlayer().getWorldLocation().getRegionID();
 		// There are some pickpocket targets who show up in the chat box with a different name (e.g. H.A.M. members -> man/woman)
 		// We use the value selected from the right-click menu as a fallback for the event lookup in those cases.
 		if (event.getMenuOption().equals("Pickpocket"))
 		{
 			lastPickpocketTarget = Text.removeTags(event.getMenuTarget());
+		}
+                
+                if (SHADES_OF_MORTN_REGIONS.contains(regionID) && event.getMenuOption().equals("Open") && Text.removeTags(event.getMenuTarget()).contains("Chest"))
+		{
+                        takeInventorySnapshot();
+			lastShadeChestOpened = Text.removeTags(event.getMenuTarget());
 		}
 	}
 
@@ -700,8 +738,15 @@ public class LootTrackerPlugin extends Plugin
 				.collect(Collectors.toList());
 
 			addLoot(event, -1, lootRecordType, items);
-
-			inventorySnapshot = null;
+                        //System.out.println("container change - event:" + event);
+                        //System.out.println("container change - lastChest:" + lastShadeChestOpened);
+                        //System.out.println("container change - chest success?:" + shadeChestSuccess);
+                        if(event.contains(SHADES_OF_MORTN_EVENT) && lastShadeChestOpened !="" && shadeChestSuccess) {
+                            inventorySnapshot = currentInventory;
+                            shadeChestSuccess = false;
+                        } else {
+                            inventorySnapshot = null;
+                        }
 		}
 	}
 
