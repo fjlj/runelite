@@ -87,11 +87,12 @@ public class ShaderTest
 		List<String> args = new ArrayList<>();
 		args.add(System.getProperty("glslang.path"));
 		args.add("-l");
-		for (Shader.Unit u : shader.units)
+		for (Object u : shader.units)
 		{
-			String contents = template.load(u.getFilename());
+
+			String contents = template.load(((Shader.Unit)u).getFilename());
 			String ext;
-			switch (u.getType())
+			switch (((Shader.Unit)u).getType())
 			{
 				case GL4.GL_VERTEX_SHADER:
 					ext = "vert";
@@ -112,9 +113,9 @@ public class ShaderTest
 					ext = "comp";
 					break;
 				default:
-					throw new IllegalArgumentException(u.getType() + "");
+					throw new IllegalArgumentException(((Shader.Unit)u).getType() + "");
 			}
-			File file = new File(folder, u.getFilename() + "." + ext);
+			File file = new File(folder, ((Shader.Unit)u).getFilename() + "." + ext);
 			Files.write(file.toPath(), contents.getBytes(StandardCharsets.UTF_8));
 			args.add(file.getAbsolutePath());
 		}
