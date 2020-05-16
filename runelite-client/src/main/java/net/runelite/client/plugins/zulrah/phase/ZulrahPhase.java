@@ -61,7 +61,7 @@ public class ZulrahPhase
 			return null;
 		}
 		StandLocation standLocation = zulrahType == ZulrahType.MAGIC ? StandLocation.PILLAR_WEST_OUTSIDE : StandLocation.TOP_EAST;
-		Prayer prayer = zulrahType == ZulrahType.MAGIC ? Prayer.PROTECT_FROM_MAGIC : null;
+		Prayer prayer = zulrahType == ZulrahType.MAGIC ? Prayer.PROTECT_FROM_MAGIC : (zulrahType == ZulrahType.RANGE ? Prayer.PROTECT_FROM_MISSILES : null);
 		return new ZulrahPhase(zulrahLocation, zulrahType, false, standLocation, prayer);
 	}
 

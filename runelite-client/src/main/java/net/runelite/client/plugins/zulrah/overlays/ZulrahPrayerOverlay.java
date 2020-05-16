@@ -40,6 +40,7 @@ import net.runelite.client.plugins.zulrah.ZulrahInstance;
 import net.runelite.client.plugins.zulrah.ZulrahPlugin;
 import net.runelite.client.plugins.zulrah.phase.ZulrahPhase;
 import net.runelite.client.ui.overlay.Overlay;
+import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayPriority;
 
@@ -54,7 +55,8 @@ public class ZulrahPrayerOverlay extends Overlay
 	ZulrahPrayerOverlay(final @Nullable Client client, final ZulrahPlugin plugin)
 	{
 		setPosition(OverlayPosition.BOTTOM_RIGHT);
-		setPriority(OverlayPriority.MED);
+		setPriority(OverlayPriority.HIGH);
+                setLayer(OverlayLayer.ABOVE_WIDGETS);
 		this.client = client;
 		this.plugin = plugin;
 	}

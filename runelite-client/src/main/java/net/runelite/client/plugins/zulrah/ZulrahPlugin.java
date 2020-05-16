@@ -231,11 +231,11 @@ public class ZulrahPlugin extends Plugin
 			switch (prayer)
 			{
 				case PROTECT_FROM_MAGIC:
-					client.playSoundEffect(8);
+					client.playSoundEffect(2675);
                                         
 					break;
 				case PROTECT_FROM_MISSILES:
-					client.playSoundEffect(10);
+					client.playSoundEffect(2677);
 					break;
 			}
 		}
